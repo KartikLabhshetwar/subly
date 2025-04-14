@@ -54,7 +54,10 @@ export function SubscriptionForm({
     const { name, value } = e.target;
     
     if (name === 'amount') {
-      setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+      const numValue = value === '' ? 0 : parseFloat(value);
+      if (!isNaN(numValue)) {
+        setFormData(prev => ({ ...prev, [name]: numValue }));
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }

@@ -87,7 +87,6 @@ export function Sidebar({ className, onExpandedChange }: SidebarProps) {
               </div>
               <div className="flex flex-col">
                 <h3 className="font-semibold">Subly</h3>
-                <p className="text-xs text-muted-foreground">Subscription Manager</p>
               </div>
             </div>
             <Button
