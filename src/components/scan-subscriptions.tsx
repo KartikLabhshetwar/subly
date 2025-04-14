@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { scanSubscriptionsFromGmail } from '@/lib/gmail-parser';
 import { supabase } from '@/lib/supabase';
 import { Subscription } from '@/lib/supabase';
-import { Scan, CheckCircle, XCircle } from 'lucide-react';
+import { Scan, CheckCircle, XCircle, Mail, Search, Inbox } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type ScanSubscriptionsProps = {
   onScanComplete?: () => void;
@@ -15,6 +16,7 @@ type ScanSubscriptionsProps = {
 
 export function ScanSubscriptions({ onScanComplete, onCancel, className }: ScanSubscriptionsProps) {
   const [isScanning, setIsScanning] = useState(false);
+  const [scanningStage, setScanningStage] = useState<'connecting' | 'scanning' | 'analyzing'>('connecting');
   const [scannedSubscriptions, setScannedSubscriptions] = useState<Partial<Subscription>[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,13 +46,23 @@ export function ScanSubscriptions({ onScanComplete, onCancel, className }: ScanS
       setError(null);
       setShowResults(false);
       setScannedSubscriptions([]);
+      setScanningStage('connecting');
       
       // Get access token
       const accessToken = await getAccessToken();
       
+      // Update stage to scanning
+      setScanningStage('scanning');
+      
       // Scan Gmail
       try {
         const subscriptions = await scanSubscriptionsFromGmail(accessToken);
+        
+        // Update stage to analyzing
+        setScanningStage('analyzing');
+        
+        // Artificial delay for analysis stage visualization (remove in production if not needed)
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // If no subscriptions found, show a message but don't treat as error
         if (subscriptions.length === 0) {
@@ -88,6 +100,7 @@ export function ScanSubscriptions({ onScanComplete, onCancel, className }: ScanS
       setError(error instanceof Error ? error.message : 'Unknown error occurred');
     } finally {
       setIsScanning(false);
+      setScanningStage('connecting');
     }
   };
 
@@ -203,30 +216,117 @@ export function ScanSubscriptions({ onScanComplete, onCancel, className }: ScanS
     );
   };
 
+  const renderScanningAnimation = () => {
+    const stages = {
+      connecting: {
+        icon: Mail,
+        text: "Connecting to Gmail...",
+        description: "Establishing secure connection"
+      },
+      scanning: {
+        icon: Search,
+        text: "Scanning emails...",
+        description: "Looking for subscription patterns"
+      },
+      analyzing: {
+        icon: Inbox,
+        text: "Analyzing results...",
+        description: "Processing found subscriptions"
+      }
+    };
+
+    const currentStage = stages[scanningStage];
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="flex flex-col items-center justify-center py-8 space-y-6"
+      >
+        <div className="relative">
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 360]
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="text-primary"
+          >
+            <currentStage.icon size={48} />
+          </motion.div>
+          <motion.div
+            animate={{
+              scale: [1.2, 1.8, 1.2],
+              opacity: [0, 1, 0]
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute inset-0 rounded-full bg-primary/20"
+          />
+        </div>
+        
+        <div className="text-center space-y-2">
+          <h3 className="text-lg font-semibold text-foreground">{currentStage.text}</h3>
+          <p className="text-sm text-muted-foreground">{currentStage.description}</p>
+        </div>
+
+        <div className="w-full max-w-xs bg-secondary rounded-full h-2 overflow-hidden">
+          <motion.div
+            className="h-full bg-primary"
+            animate={{
+              width: ["0%", "100%"],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+          />
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
-      <h2 className="text-xl font-semibold text-white">Scan Gmail for Subscriptions</h2>
-      <p className="text-gray-400 text-sm">
+      <h2 className="text-xl font-semibold text-foreground">Scan Gmail for Subscriptions</h2>
+      <p className="text-muted-foreground text-sm">
         Connect your Gmail to automatically find subscription emails. 
         We only need read-only access to scan for common patterns.
       </p>
       
-      {!showResults && (
-        <Button
-          onClick={handleScan}
-          disabled={isScanning}
-          variant="outline"
-          className="border-purple-500 text-purple-400 hover:bg-purple-900/50"
-        >
-          <Scan className="mr-2 h-4 w-4" />
-          {isScanning ? 'Scanning... Please wait' : 'Start Gmail Scan'}
-        </Button>
-      )}
+      <AnimatePresence mode="wait">
+        {isScanning ? (
+          renderScanningAnimation()
+        ) : !showResults && (
+          <Button
+            onClick={handleScan}
+            disabled={isScanning}
+            variant="outline"
+            className="border-primary text-primary hover:bg-primary/10"
+          >
+            <Scan className="mr-2 h-4 w-4" />
+            Start Gmail Scan
+          </Button>
+        )}
+      </AnimatePresence>
 
       {error && !isScanning && (
-        <div className="bg-red-900/30 text-red-300 border border-red-700 p-3 rounded-md text-sm">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-destructive/10 text-destructive border border-destructive/20 p-3 rounded-md text-sm"
+        >
           {error}
-        </div>
+        </motion.div>
       )}
 
       {showResults && (
