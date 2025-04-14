@@ -5,8 +5,10 @@ import { supabase } from '@/lib/supabase';
 import { Subscription } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { format, differenceInDays, isToday, isPast } from 'date-fns';
-import { Loader2, AlertCircle, RefreshCw, Edit, Trash2 } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, Edit, Trash2, CreditCard } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 type SubscriptionListProps = {
   className?: string;
@@ -101,13 +103,11 @@ export function SubscriptionList({ className, onEdit }: SubscriptionListProps) {
 
   // Delete a subscription
   const handleDelete = async (id: string) => {
-    // Use window.confirm for simplicity, consider a modal for better UX
     if (!window.confirm('Are you sure you want to delete this subscription?')) {
       return;
     }
     
     try {
-      // Optionally add a loading state for the specific item being deleted
       const { error } = await supabase
         .from('subscriptions')
         .delete()
@@ -115,14 +115,12 @@ export function SubscriptionList({ className, onEdit }: SubscriptionListProps) {
       
       if (error) throw error;
       
-      // Refresh the list by filtering out the deleted item locally first for faster UI update
       setSubscriptions(prev => prev.filter(sub => sub.id !== id));
-      // Optionally call fetchSubscriptions() again if local update isn't sufficient
+      toast.success('Subscription deleted successfully');
       
     } catch (error) {
       console.error('Error deleting subscription:', error);
-      // Show a user-friendly error message (e.g., using a toast library)
-      alert('Failed to delete subscription. Please try again.'); 
+      toast.error('Failed to delete subscription');
     }
   };
 
@@ -139,121 +137,158 @@ export function SubscriptionList({ className, onEdit }: SubscriptionListProps) {
   // Loading State UI
   if (isLoading) {
     return (
-      <div className={cn("flex justify-center items-center py-16", className)}>
-        <div className="text-center text-gray-400">
-          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3 text-purple-400" />
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={cn("flex justify-center items-center py-16", className)}
+      >
+        <div className="text-center text-muted-foreground">
+          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3 text-primary" />
           <p>Loading subscriptions...</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Error State UI
   if (error) {
     return (
-      <div className={cn("text-center py-12 border border-red-700/50 bg-red-900/20 rounded-lg p-6", className)}>
-        <AlertCircle className="w-10 h-10 mx-auto mb-3 text-red-400" />
-        <p className="text-red-300 mb-4">{error}</p>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn("text-center py-12 border border-destructive/50 bg-destructive/10 rounded-lg p-6", className)}
+      >
+        <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive" />
+        <p className="text-destructive mb-4">{error}</p>
         <Button 
           onClick={handleRefresh} 
           variant="outline"
-          className="border-red-400 text-red-400 hover:bg-red-900/40"
+          className="border-destructive text-destructive hover:bg-destructive/10"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Try Again
         </Button>
-      </div>
+      </motion.div>
     );
   }
 
   // Empty State UI
   if (subscriptions.length === 0) {
     return (
-      <div className={cn("text-center py-16 border border-gray-700 bg-gray-800/50 rounded-lg p-6", className)}>
-        <p className="text-gray-300 mb-4">You haven&apos;t added any subscriptions yet.</p>
-        {/* Consider linking to the add subscription action */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn("text-center py-16 border border-border bg-card/50 rounded-lg p-6", className)}
+      >
+        <CreditCard className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+        <p className="text-muted-foreground mb-4">You haven&apos;t added any subscriptions yet.</p>
         <Button 
-          onClick={handleRefresh} // Or link to add page: onClick={() => router.push('...')} 
+          onClick={handleRefresh}
           variant="outline"
-          className="border-purple-500 text-purple-400 hover:bg-purple-900/50"
+          className="border-primary text-primary hover:bg-primary/10"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh List
         </Button>
-      </div>
+      </motion.div>
     );
   }
 
   // Main List UI
   return (
-    <div className={cn("space-y-4", className)}> {/* Use space-y for gap */}
-      {/* Optional Header for Total */}
-      <div className="flex justify-between items-baseline mb-4 pb-2 border-b border-gray-700">
-        <h2 className="text-xl font-semibold text-white">Your Subscriptions ({subscriptions.length})</h2>
-        <div className="text-right">
-          <p className="text-sm text-gray-400">Total Monthly Est.</p>
-          <p className="text-xl font-bold text-white">${totalMonthlyCost.toFixed(2)}</p>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className={cn("space-y-6", className)}
+    >
+      {/* Header with Total */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex justify-between items-baseline mb-6 pb-4 border-b"
+      >
+        <div>
+          <h2 className="text-2xl font-semibold text-foreground">Your Subscriptions</h2>
+          <p className="text-muted-foreground mt-1">{subscriptions.length} active subscription{subscriptions.length !== 1 ? 's' : ''}</p>
         </div>
-      </div>
+        <div className="text-right">
+          <p className="text-sm text-muted-foreground">Total Monthly Est.</p>
+          <p className="text-2xl font-bold text-foreground">${totalMonthlyCost.toFixed(2)}</p>
+        </div>
+      </motion.div>
             
-      {subscriptions.map((subscription) => {
-        const dueStatus = getDueStatus(subscription.next_due_date);
-        const statusColorClasses = {
-          overdue: 'text-red-400',
-          'due-today': 'text-yellow-400',
-          'due-soon': 'text-orange-400',
-          upcoming: 'text-gray-400',
-          error: 'text-red-600', 
-          unknown: 'text-gray-600',
-        };
-        
-        return (
-          <div 
-            key={subscription.id} 
-            // Enhanced card styling
-            className="border border-gray-700 bg-gradient-to-r from-gray-800/70 to-gray-900/60 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-gray-800/90 transition-all duration-200 shadow-md"
-          >
-            {/* Subscription Details */}
-            <div className="flex-1 mb-3 sm:mb-0 sm:mr-4 overflow-hidden">
-              <h3 className="font-semibold text-lg text-white truncate">{subscription.service_name}</h3>
-              <p className="text-gray-400 text-sm">
-                ${subscription.amount.toFixed(2)} / {subscription.billing_cycle}
-              </p>
-              <div className={cn(
-                "text-sm mt-1 font-medium",
-                statusColorClasses[dueStatus.status as keyof typeof statusColorClasses] || 'text-gray-500'
-              )}>
-                {dueStatus.text}
+      {/* Subscription List */}
+      <AnimatePresence mode="popLayout">
+        {subscriptions.map((subscription, index) => {
+          const dueStatus = getDueStatus(subscription.next_due_date);
+          const statusColorClasses = {
+            overdue: 'text-destructive',
+            'due-today': 'text-yellow-500',
+            'due-soon': 'text-orange-500',
+            upcoming: 'text-muted-foreground',
+            error: 'text-destructive', 
+            unknown: 'text-muted-foreground',
+          };
+          
+          return (
+            <motion.div 
+              key={subscription.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              transition={{ duration: 0.2, delay: index * 0.05 }}
+              className="group relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-primary/0 group-hover:from-primary/10 transition-all duration-300 rounded-lg" />
+              <div className="border bg-card hover:bg-card/80 rounded-lg p-6 relative transition-all duration-200 shadow-lg hover:shadow-xl">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  {/* Subscription Details */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-primary transition-colors">
+                      {subscription.service_name}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      ${subscription.amount.toFixed(2)} / {subscription.billing_cycle}
+                    </p>
+                    <div className={cn(
+                      "text-sm mt-1 font-medium",
+                      statusColorClasses[dueStatus.status as keyof typeof statusColorClasses]
+                    )}>
+                      {dueStatus.text}
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 flex-shrink-0">
+                    {onEdit && (
+                      <Button 
+                        onClick={() => onEdit(subscription)} 
+                        size="sm" 
+                        variant="outline"
+                        className="relative overflow-hidden group/btn"
+                      >
+                        <span className="absolute inset-0 bg-primary/10 transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-200" />
+                        <Edit className="h-4 w-4 mr-2" />
+                        <span className="relative">Edit</span>
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={() => handleDelete(subscription.id!)} 
+                      size="sm" 
+                      variant="destructive"
+                      className="relative overflow-hidden group/btn"
+                    >
+                      <span className="absolute inset-0 bg-destructive/20 transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-200" />
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      <span className="relative">Delete</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            {/* Action Buttons */}
-            <div className="flex space-x-2 flex-shrink-0">
-              {onEdit && (
-                <Button 
-                  onClick={() => onEdit(subscription)} 
-                  size="sm" 
-                  variant="outline"
-                  className="border-blue-600 text-blue-400 hover:bg-blue-900/50 px-3 py-1.5"
-                >
-                  <Edit className="h-4 w-4" />
-                  <span className="sr-only sm:not-sr-only sm:ml-1">Edit</span> {/* Show text on larger screens */} 
-                </Button>
-              )}
-              <Button 
-                onClick={() => handleDelete(subscription.id!)} 
-                size="sm" 
-                variant="destructive"
-                // Consistent destructive style
-                className="text-red-400 hover:text-white px-3 py-1.5"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span className="sr-only sm:not-sr-only sm:ml-1">Delete</span> {/* Show text on larger screens */} 
-              </Button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </motion.div>
   );
 } 
